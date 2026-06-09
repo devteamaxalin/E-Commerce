@@ -1,11 +1,15 @@
-import { BrowserRouter } from "react-router-dom";
-import CustomerRoutes from "./components/Customer/CustomerRoutes";
+import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext'; 
+import AppRoutes from './components/Routes'; // ✅ Updated to point to your actual file
 
 function App() {
   return (
-    <BrowserRouter>
-      <CustomerRoutes />
-    </BrowserRouter>
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </Router>
   );
 }
 
