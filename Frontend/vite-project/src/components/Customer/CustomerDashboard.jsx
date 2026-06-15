@@ -1,6 +1,28 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
  
 export default function CustomerDashboard() {
+  const [stats, setStats] = useState({
+  total_orders: 0,
+  delivered: 0,
+  processing: 0,
+  cancelled: 0,
+});
+useEffect(() => {
+  fetchDashboard();
+}, []);
+
+const fetchDashboard = async () => {
+  try {
+    const res = await axios.get(
+      "http://127.0.0.1:8000/api/dashboard"
+    );
+
+    setStats(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
   const cardStyle = {
     background: "#fff",
     padding: "24px",
@@ -21,10 +43,10 @@ export default function CustomerDashboard() {
         gap: "20px",
         marginBottom: "30px",
       }}>
-        <div style={cardStyle}><h4>Total Orders</h4><h1 style={{ color: "#6b21a8" }}>15</h1></div>
-        <div style={cardStyle}><h4>Delivered</h4><h1 style={{ color: "#22c55e" }}>10</h1></div>
-        <div style={cardStyle}><h4>Pending</h4><h1 style={{ color: "#f59e0b" }}>3</h1></div>
-        <div style={cardStyle}><h4>Cancelled</h4><h1 style={{ color: "#ef4444" }}>2</h1></div>
+        <div style={cardStyle}><h4>Total Orders</h4><h1 style={{ color: "#6b21a8" }}>{stats.total_orders}</h1></div>
+        <div style={cardStyle}><h4>Delivered</h4><h1 style={{ color: "#22c55e" }}>{stats.delivered}</h1></div>
+        <div style={cardStyle}><h4>Pending</h4><h1 style={{ color: "#f59e0b" }}>{stats.processing}</h1></div>
+        <div style={cardStyle}><h4>Cancelled</h4><h1 style={{ color: "#ef4444" }}>{stats.cancelled}</h1></div>
       </div>
     </div>
   );

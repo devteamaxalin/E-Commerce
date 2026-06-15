@@ -5,15 +5,15 @@ import Login from "./Login";
 import StoreFront from "./StoreFront";
 import CustomerRoutes from "./Customer/CustomerRoutes";
 import AdminRoutes from "./Admin/AdminRoutes";
-
+ 
 export default function AppRoutes() {
   const { user } = useAuth();
-
+ 
   return (
     <Routes>
       {/* Step 1 — Everyone sees StoreFront first */}
       <Route path="/" element={<StoreFront />} />
-
+ 
       {/* Step 2 — Login/Register */}
       <Route
         path="/login"
@@ -23,7 +23,7 @@ export default function AppRoutes() {
           <Navigate to="/dashboard" />
         }
       />
-
+ 
       {/* Step 3 — Admin only */}
       <Route
         path="/admin/*"
@@ -33,7 +33,7 @@ export default function AppRoutes() {
           <Navigate to="/login" />
         }
       />
-
+ 
       {/* Step 4 — Customer only */}
       <Route
         path="/dashboard/*"
@@ -43,7 +43,7 @@ export default function AppRoutes() {
           <Navigate to="/login" />
         }
       />
-
+ 
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

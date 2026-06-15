@@ -1,33 +1,49 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
  
 const WishList = () => {
-  const [wishlist, setWishlist] = useState([
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      price: "₹2,999",
-      image:
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500",
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      price: "₹4,999",
-      image:
-        "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=500",
-    },
-    {
-      id: 3,
-      name: "Running Shoes",
-      price: "₹3,499",
-      image:
-        "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500",
-    },
-  ]);
+  const [wishlist, setWishlist] = useState([]);
+  useEffect(() => {
+  fetchWishlist();
+}, []);
+
+const fetchWishlist = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await axios.get(
+      "http://127.0.0.1:8000/api/wishlist",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setWishlist(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
  
-  const removeItem = (id) => {
-    setWishlist(wishlist.filter((item) => item.id !== id));
-  };
+ const removeItem = async (productId) => {
+  try {
+    const token = localStorage.getItem("token");
+
+    await axios.delete(
+      `http://127.0.0.1:8000/api/wishlist/${productId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    fetchWishlist();
+  } catch (err) {
+    console.error(err);
+  }
+};
  
   const addToCart = (item) => {
     alert(`${item.name} added to cart!`);
@@ -43,11 +59,13 @@ const WishList = () => {
         <div style={styles.grid}>
           {wishlist.map((item) => (
             <div key={item.id} style={styles.card}>
-              <img src={item.image} alt={item.name} style={styles.image} />
- 
+             <img
+  src={item.image_url}
+  alt={item.name}
+  style={styles.image}
+/>
               <h3 style={styles.name}>{item.name}</h3>
-              <p style={styles.price}>{item.price}</p>
- 
+              <p style={styles.price}>₹{item.price}</p>
               <div style={styles.buttons}>
                 <button
                   style={styles.cartBtn}
