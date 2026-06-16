@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-
+import { MapPin, Phone, Home, Trash2, PlusCircle, AlertCircle } from "lucide-react";
+ 
 const ShippingAddresses = () => {
   const [addresses, setAddresses] = useState([]);
   const [form, setForm] = useState({
@@ -9,228 +9,253 @@ const ShippingAddresses = () => {
     phone: "",
   });
   const [loading, setLoading] = useState(false);
-
-  // Fetch all addresses from MySQL backend on component mount
-  const fetchAddresses = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      const res = await axios.get("http://127.0.0.1:8000/api/addresses", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setAddresses(res.data);
-    } catch (err) {
-      console.error("Error fetching addresses:", err);
-    }
-  };
-
+ 
   useEffect(() => {
-    fetchAddresses();
+    const stored = JSON.parse(localStorage.getItem("savedAddresses")) || [];
+    setAddresses(stored);
   }, []);
-
+ 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
-
-  // Add a new address to MySQL backend
-  const addAddress = async (e) => {
+ 
+  const addAddress = (e) => {
     e.preventDefault();
     if (!form.address || !form.phone) {
       alert("Address and phone number are required!");
       return;
     }
-
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-      
-      // Note: Your backend matches 'label', 'address', and 'phone'
-      const payload = {
-        label: form.label || "Home",
-        address: form.address,
-        phone: form.phone,
-      };
-
-      await axios.post("http://127.0.0.1:8000/api/addresses", payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      // Clear the form fields and refresh list
-      setForm({ label: "", address: "", phone: "" });
-      await fetchAddresses();
-    } catch (err) {
-      console.error("Error saving address:", err);
-      alert(err.response?.data?.detail || "Failed to save address");
-    } finally {
-      setLoading(false);
-    }
+ 
+    setLoading(true);
+ 
+    const newAddress = {
+      id: Date.now(),
+      label: form.label || "Home",
+      address: form.address,
+      phone: form.phone,
+    };
+ 
+    const updated = [...addresses, newAddress];
+    setAddresses(updated);
+    localStorage.setItem("savedAddresses", JSON.stringify(updated));
+    setForm({ label: "", address: "", phone: "" });
+    setLoading(false);
   };
-
-  // Delete an address from MySQL backend
-  const deleteAddress = async (id) => {
+ 
+  const deleteAddress = (id) => {
     if (!window.confirm("Are you sure you want to delete this address?")) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      await axios.delete(`http://127.0.0.1:8000/api/addresses/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      // Optimistically update UI state or re-fetch
-      setAddresses(addresses.filter((a) => a.id !== id));
-    } catch (err) {
-      console.error("Error deleting address:", err);
-      alert(err.response?.data?.detail || "Failed to delete address");
-    }
+    const updated = addresses.filter((a) => a.id !== id);
+    setAddresses(updated);
+    localStorage.setItem("savedAddresses", JSON.stringify(updated));
   };
-
+ 
   return (
-    <div className="shipping-wrapper">
-      <style>{`
+<div className="shipping-wrapper">
+<style>{`
         .shipping-wrapper {
           display: flex;
-          gap: 20px;
-          padding: 20px;
+          gap: 32px;
+          padding: 40px;
           background: #f6f7fb;
           min-height: 100vh;
           font-family: Arial, sans-serif;
+          box-sizing: border-box;
         }
-
-        /* LEFT FORM */
+ 
         .shipping-form {
           flex: 1;
           background: #fff;
-          padding: 20px;
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          padding: 40px;
+          border-radius: 16px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.07);
           height: fit-content;
         }
-
+ 
         .shipping-form h2 {
-          margin-bottom: 15px;
+          margin-bottom: 24px;
+          color: #0f172a;
+          font-size: 24px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
-
+ 
         .shipping-form input,
         .shipping-form textarea {
           width: 100%;
-          padding: 10px;
-          margin-bottom: 12px;
+          padding: 14px 16px;
+          margin-bottom: 18px;
           border: 1px solid #ddd;
-          border-radius: 8px;
+          border-radius: 10px;
           outline: none;
           font-family: Arial, sans-serif;
+          box-sizing: border-box;
+          font-size: 15px;
         }
-
-        .shipping-form button {
+ 
+        .shipping-form input:focus,
+        .shipping-form textarea:focus {
+          border-color: #6c5ce7;
+          box-shadow: 0 0 0 3px rgba(108,92,231,0.1);
+        }
+ 
+        .shipping-form button[type="submit"] {
           width: 100%;
-          padding: 10px;
+          padding: 14px;
           background: #6c5ce7;
           color: #fff;
           border: none;
-          border-radius: 8px;
+          border-radius: 10px;
           cursor: pointer;
           font-weight: bold;
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 4px;
         }
-
-        .shipping-form button:disabled {
+ 
+        .shipping-form button[type="submit"]:hover {
+          background: #5b4bd4;
+        }
+ 
+        .shipping-form button[type="submit"]:disabled {
           background: #a29bfe;
           cursor: not-allowed;
         }
-
-        /* RIGHT LIST */
+ 
         .address-list {
           flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 20px;
         }
-
+ 
         .address-card {
           background: #fff;
-          padding: 15px;
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-          border-left: 4px solid #6c5ce7;
+          padding: 30px;
+          border-radius: 16px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+          border-left: 5px solid #6c5ce7;
         }
-
-        .address-card h4 {
-          margin: 0 0 5px 0;
+ 
+        .address-card-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 14px;
+        }
+ 
+        .address-card-header h4 {
+          margin: 0;
           color: #2d3436;
-          font-size: 16px;
+          font-size: 18px;
+          font-weight: 700;
         }
-
-        .address-card p {
-          margin: 4px 0;
+ 
+        .address-card-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin: 8px 0;
           color: #555;
-          font-size: 14px;
-          line-height: 1.4;
+          font-size: 15px;
+          line-height: 1.6;
         }
-
+ 
+        .address-card-row svg {
+          margin-top: 3px;
+          flex-shrink: 0;
+        }
+ 
         .btn-group {
           display: flex;
           gap: 10px;
-          margin-top: 10px;
+          margin-top: 20px;
         }
-
+ 
         .btn {
-          padding: 6px 12px;
+          padding: 10px 20px;
           border: none;
-          border-radius: 6px;
+          border-radius: 8px;
           cursor: pointer;
-          font-size: 12px;
+          font-size: 14px;
           font-weight: bold;
+          display: flex;
+          align-items: center;
+          gap: 7px;
         }
-
+ 
         .delete {
-          background: #d63031;
-          color: white;
+          background: #fef2f2;
+          color: #dc2626;
+          border: 1px solid #fecaca;
         }
-
+ 
+        .delete:hover {
+          background: #fee2e2;
+        }
+ 
         .no-address {
           text-align: center;
-          padding: 30px;
+          padding: 70px 30px;
           background: #fff;
-          border-radius: 12px;
+          border-radius: 16px;
           color: #7f8c8d;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.07);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
         }
-
-        /* MOBILE */
+ 
+        .no-address p {
+          margin: 0;
+          font-size: 17px;
+        }
+ 
         @media (max-width: 768px) {
           .shipping-wrapper {
             flex-direction: column;
+            padding: 16px;
+            gap: 16px;
+          }
+ 
+          .shipping-form {
+            padding: 20px;
+          }
+ 
+          .address-card {
+            padding: 20px;
           }
         }
       `}</style>
-
+ 
       {/* FORM */}
-      <div className="shipping-form">
-        <h2>Shipping Address</h2>
-
+<div className="shipping-form">
+<h2>
+<MapPin size={24} color="#6c5ce7" />
+          Shipping Address
+</h2>
+ 
         <form onSubmit={addAddress}>
-          <input
+<input
             type="text"
             name="label"
-            placeholder="Address Type (e.g., Home, Office, Default)"
+            placeholder="Address Type (e.g., Home, Office)"
             value={form.label}
             onChange={handleChange}
           />
-
+ 
           <textarea
             name="address"
-            rows="3"
+            rows="4"
             placeholder="Full Delivery Address"
             value={form.address}
             onChange={handleChange}
           />
-
+ 
           <input
             type="text"
             name="phone"
@@ -238,40 +263,59 @@ const ShippingAddresses = () => {
             value={form.phone}
             onChange={handleChange}
           />
-
+ 
           <button type="submit" disabled={loading}>
-            {loading ? "Saving Address..." : "Save Address"}
-          </button>
-        </form>
-      </div>
-
+<PlusCircle size={18} />
+            {loading ? "Saving..." : "Save Address"}
+</button>
+</form>
+</div>
+ 
       {/* LIST */}
-      <div className="address-list">
+<div className="address-list">
         {addresses.length === 0 ? (
-          <div className="no-address">
-            📍 No saved addresses found. Please add an address using the form.
-          </div>
+<div className="no-address">
+<AlertCircle size={55} color="#a29bfe" />
+<p>No saved addresses found.</p>
+<p style={{ fontSize: "14px", color: "#aaa" }}>
+              Add an address using the form.
+</p>
+</div>
         ) : (
           addresses.map((item) => (
-            <div key={item.id} className="address-card">
-              <h4>🏠 {item.label}</h4>
-              <p>{item.address}</p>
-              <p>📞 {item.phone}</p>
-
+<div key={item.id} className="address-card">
+ 
+              <div className="address-card-header">
+<Home size={20} color="#6c5ce7" />
+<h4>{item.label}</h4>
+</div>
+ 
+              <div className="address-card-row">
+<MapPin size={17} color="#6b7280" />
+<span>{item.address}</span>
+</div>
+ 
+              <div className="address-card-row">
+<Phone size={17} color="#6b7280" />
+<span>{item.phone}</span>
+</div>
+ 
               <div className="btn-group">
-                <button
+<button
                   className="btn delete"
                   onClick={() => deleteAddress(item.id)}
-                >
+>
+<Trash2 size={15} />
                   Delete
-                </button>
-              </div>
+</button>
+</div>
+ 
             </div>
           ))
         )}
-      </div>
-    </div>
+</div>
+</div>
   );
 };
-
+ 
 export default ShippingAddresses;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
-import { FaHeart, FaRegHeart, FaShoppingCart, FaUser, FaTrash, FaArrowLeft, FaCheckCircle } from "react-icons/fa";
+import { FaHeart, FaRegHeart, FaShoppingCart, FaUser, FaTrash, FaArrowLeft, FaCheckCircle, FaShoppingBag } from "react-icons/fa";
 import { FiSearch } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 
@@ -65,7 +65,6 @@ export default function Home({ wishlist = [], setWishlist }) {
       });
 
       if (Array.isArray(res.data)) {
-        // Keep the database objects intact so it matches WishList.jsx exactly
         setWishlist(res.data);
       }
     } catch (err) {
@@ -123,7 +122,6 @@ export default function Home({ wishlist = [], setWishlist }) {
     showNotification("Added to Cart!", "success");
   };
 
-  // FIXED: TOGGLE SYSTEM THAT PULLS DIRECTLY FROM DATA SCHEMAS
   const toggleWishlist = async (product) => {
     try {
       const token = localStorage.getItem("token");
@@ -132,7 +130,6 @@ export default function Home({ wishlist = [], setWishlist }) {
         return;
       }
 
-      // Check if product is already wishlisted by matching id or product_id attributes
       const isItemAlreadyInWishlist = wishlist.some(
         (item) => item.product_id === product.id || item.id === product.id
       );
@@ -149,7 +146,6 @@ export default function Home({ wishlist = [], setWishlist }) {
         showNotification("Added to Wishlist!", "success");
       }
       
-      // Re-fetch list immediately to ensure UI context and database match completely
       fetchUserWishlist();
     } catch (err) {
       console.error(err);
@@ -169,7 +165,6 @@ export default function Home({ wishlist = [], setWishlist }) {
   const totalPrice = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(searchTerm.toLowerCase()));
   
-  // FIXED: Sync internal logic state with your wishlist array format
   const wishlistProducts = products.filter((product) =>
     wishlist.some((item) => item.product_id === product.id || item.id === product.id)
   );
@@ -230,14 +225,16 @@ export default function Home({ wishlist = [], setWishlist }) {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      showNotification(`Order Placed Successfully! ${res.data.order_id}`, "success");
+      showNotification(`Order Placed Successfully!`, "success");
 
       if (!buyNowProduct) setCart([]);
       setFullName(""); setAddress(""); setPhone("");
       setSelectedPayment(""); setUpiId(""); setCardNumber(""); setCardName(""); setCardExpiry(""); setCardCvv("");
       setBuyNowProduct(null); 
       setShowCheckout(false); 
-      setCurrentPage("home");
+      
+      // Redirect straight to user orders routing frame tracking layout page
+      navigate("/dashboard/orders");
     } catch (err) {
       console.error(err);
       showNotification(err.response?.data?.detail || "Failed to place order", "error");
@@ -272,6 +269,10 @@ export default function Home({ wishlist = [], setWishlist }) {
           />
         </div>
         <div style={styles.navActions}>
+          <div style={styles.navItem} onClick={() => navigate("/dashboard/orders")}>
+            <FaShoppingBag style={{ color: "#666" }} />
+            <span>Track Orders</span>
+          </div>
           <div style={styles.navItem} onClick={() => setCurrentPage("wishlist")}>
             <FaHeart style={{ color: currentPage === "wishlist" ? "#dc2626" : "#666" }} />
             <span style={{ fontWeight: currentPage === "wishlist" ? "bold" : "normal" }}>Wishlist ({totalWishlistItems})</span>
@@ -292,13 +293,13 @@ export default function Home({ wishlist = [], setWishlist }) {
         <>
           <div style={styles.hero}>
             <div>
-              <h1>UP TO 50% OFF</h1>
-              <h3>Electronics & Accessories</h3>
+              <h1 style={{ margin: "0 0 10px 0", fontSize: "42px" }}>UP TO 50% OFF</h1>
+              <h3 style={{ margin: "0 0 20px 0", fontWeight: "400" }}>Electronics & Accessories</h3>
               <button style={styles.shopBtn} onClick={() => productsRef.current?.scrollIntoView({ behavior: "smooth" })}>Shop Now</button>
             </div>
           </div>
 
-          <div ref={productsRef}><h2 style={{ marginBottom: 20 }}>Featured Products</h2></div>
+          <div ref={productsRef}><h2 style={{ marginBottom: 20, color: "#1e293b" }}>Featured Products</h2></div>
 
           {productsLoading && (
             <div style={styles.loadingContainer}>
@@ -318,7 +319,6 @@ export default function Home({ wishlist = [], setWishlist }) {
             <div style={styles.grid}>
               {filteredProducts.length > 0 ? (
                 filteredProducts.map((product) => {
-                  // FIXED MATCH LOGIC FOR INTERNAL COMPONENT ITERATION
                   const isWishlisted = wishlist.some(
                     (item) => item.product_id === product.id || item.id === product.id
                   );
@@ -542,8 +542,6 @@ export default function Home({ wishlist = [], setWishlist }) {
                           cursor: "pointer", 
                           textAlign: "left" 
                         }}
-                        onMouseEnter={(e) => { if(address !== a.address) e.currentTarget.style.borderColor = "#94a3b8"; }}
-                        onMouseLeave={(e) => { if(address !== a.address) e.currentTarget.style.borderColor = "#e2e8f0"; }}
                       >
                         <div style={{ fontWeight: "bold", fontSize: "12px", color: address === a.address ? "#2563eb" : "#0f172a" }}>
                           🏠 {a.label || "Saved Location"} {address === a.address && " 🟢 (Selected)"}
@@ -588,7 +586,6 @@ export default function Home({ wishlist = [], setWishlist }) {
               <div style={styles.credentialBox}>
                 <label style={styles.formLabel}>Enter UPI ID</label>
                 <input type="text" placeholder="yourname@upi" value={upiId} onChange={(e) => setUpiId(e.target.value)} style={styles.input} />
-                <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "-10px" }}>e.g. mobilenumber@paytm, name@gpay</p>
               </div>
             )}
 
@@ -641,27 +638,26 @@ export default function Home({ wishlist = [], setWishlist }) {
           <div>
             <h4>Shop</h4>
             <p style={{ cursor: "pointer" }} onClick={() => setCurrentPage("home")}>All Products</p>
-            <p>Electronics</p><p>Fashion</p><p>Home & Living</p><p>Sports</p>
+            <p>Electronics</p><p>Fashion</p><p>Home & Living</p>
           </div>
           <div>
             <h4>Customer Service</h4>
-            <p>Contact Us</p><p>FAQs</p><p>Shipping Policy</p><p>Return Policy</p><p>Track Order</p>
+            <p>Contact Us</p><p>FAQs</p><p>Track Order</p>
           </div>
           <div>
             <h4>My Account</h4>
-            <p>My Orders</p>
+            <p onClick={() => navigate("/dashboard/orders")} style={{ cursor: "pointer" }}>My Orders</p>
             <p style={{ cursor: "pointer" }} onClick={() => setCurrentPage("wishlist")}>Wishlist</p>
-            <p style={{ cursor: "pointer" }} onClick={() => setCurrentPage("cart")}>My Cart</p>
           </div>
           <div>
             <h4>Company</h4>
-            <p>About Us</p><p>Careers</p><p>Blog</p><p>Privacy Policy</p><p>Terms & Conditions</p>
+            <p>About Us</p><p>Privacy Policy</p>
           </div>
         </div>
         <div style={styles.footerBottom}>
           <p>© 2026 ShopEase. All Rights Reserved.</p>
           <div style={styles.paymentIcons}>
-            <span>💳 VISA</span><span>💳 MasterCard</span><span>💳 PayPal</span><span>💳 UPI</span>
+            <span>💳 VISA</span><span>💳 MasterCard</span><span>💳 UPI</span>
           </div>
         </div>
       </div>
@@ -677,60 +673,61 @@ export default function Home({ wishlist = [], setWishlist }) {
 }
 
 const styles = {
-  container: { padding: 20, fontFamily: "Arial, sans-serif", background: "#f5f7fb", minHeight: "100vh" },
-  buttonGroup: { display: "flex", gap: "10px", marginTop: "10px" },
-  buyNowBtn: { background: "rgb(21, 107, 5)", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", flex: 1 },
-  outOfStockBtn: { background: "#94a3b8", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "not-allowed", fontWeight: "bold", flex: 1 },
-  goCartBtn: { background: "#16a34a", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", width: "100%", fontWeight: "bold" },
-  navbar: { display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", padding: "15px 25px", borderRadius: "10px", marginBottom: "20px", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" },
-  logoSection: { display: "flex", alignItems: "center", gap: "15px" },
-  menuIcon: { fontSize: "24px", cursor: "pointer" },
-  logo: { margin: 0, fontSize: "34px", fontWeight: "bold" },
-  searchWrapper: { position: "relative", flex: 1, margin: "0 30px" },
-  searchIcon: { position: "absolute", left: "18px", top: "50%", transform: "translateY(-50%)", fontSize: "20px", color: "#666" },
-  searchInput: { width: "100%", height: "52px", paddingLeft: "50px", paddingRight: "20px", fontSize: "16px", border: "2px solid #3b82f6", borderRadius: "18px", outline: "none", boxSizing: "border-box" },
-  noProducts: { textAlign: "center", fontSize: "20px", fontWeight: "bold", padding: "40px", gridColumn: "1 / -1" },
-  navActions: { display: "flex", alignItems: "center", gap: "25px" },
-  navItem: { display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "15px" },
-  hero: { background: "linear-gradient(135deg,#2563eb,#7c3aed)", color: "#fff", padding: 50, borderRadius: 12, marginBottom: 30 },
-  shopBtn: { background: "#fff", color: "#2563eb", border: "none", padding: "12px 20px", borderRadius: 8, cursor: "pointer" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 20 },
-  card: { position: "relative", background: "#fff", borderRadius: 10, padding: 15, textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
-  wishlistIconContainer: { position: "absolute", top: "15px", right: "15px", cursor: "pointer", background: "rgba(255,255,255,0.8)", padding: "6px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 5px rgba(0,0,0,0.15)", zIndex: 10 },
-  discountBadge: { position: "absolute", top: "15px", left: "15px", background: "#dc2626", color: "#fff", fontSize: "11px", fontWeight: "bold", padding: "3px 8px", borderRadius: "12px", zIndex: 10 },
-  image: { width: "100%", height: 220, objectFit: "cover", borderRadius: 8 },
-  productName: { margin: "10px 0 4px", fontSize: "15px", fontWeight: "bold", color: "#0f172a" },
-  brandText: { margin: "0 0 6px", fontSize: "12px", color: "#94a3b8" },
-  priceRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "4px" },
-  price: { color: "green", fontWeight: "bold", fontSize: "16px" },
-  originalPrice: { color: "#94a3b8", fontSize: "13px", textDecoration: "line-through" },
-  addBtn: { background: "#2563eb", color: "#fff", border: "none", padding: "10px 16px", borderRadius: 6, cursor: "pointer", flex: 1 },
-  qtyBox: { display: "flex", alignItems: "center", gap: 10 },
-  qtyBtn: { width: 35, height: 35, display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #cbd5e1", background: "#fff", borderRadius: "6px", cursor: "pointer" },
-  cartPageGrid: { display: "flex", gap: "20px", flexWrap: "wrap", marginTop: "20px" },
-  cartItemsListContainer: { flex: 2, display: "flex", flexDirection: "column", gap: "15px", minWidth: "300px" },
-  cartItemRow: { display: "flex", alignItems: "center", gap: "15px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" },
-  cartPageImage: { width: "80px", height: "80px", objectFit: "cover", borderRadius: "6px" },
-  cartTrashBtn: { background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "18px", marginLeft: "10px" },
-  summaryCard: { flex: 1, background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 2px 10px rgba(0,0,0,0.05)", minWidth: "250px", height: "fit-content" },
-  buyBtn: { background: "#2563eb", color: "#fff", border: "none", width: "100%", padding: "12px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" },
-  cancelBtn: { background: "#e2e8f0", color: "#475569", border: "none", width: "100%", padding: "12px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" },
-  overlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 99999, padding: "20px" },
-  modal: { background: "#fff", width: "100%", maxWidth: "500px", padding: "25px", borderRadius: "12px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto" },
-  formLabel: { display: "block", fontSize: "14px", fontWeight: "600", color: "#334155", marginBottom: "6px" },
-  input: { width: "100%", height: "44px", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "0 12px", boxSizing: "border-box", fontSize: "14px", marginBottom: "15px", outline: "none" },
-  paymentMethodContainer: { display: "flex", flexDirection: "column", gap: "10px", marginBottom: "15px" },
-  paymentOptionCard: { display: "flex", alignItems: "center", gap: "12px", padding: "14px", border: "1px solid", borderRadius: "8px", cursor: "pointer" },
-  credentialBox: { padding: "15px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", marginBottom: "15px" },
-  backToShopBtn: { background: "none", border: "none", color: "#2563eb", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" },
-  emptyStateContainer: { textAlign: "center", padding: "50px 20px" },
-  shopNowRedirectBtn: { background: "#2563eb", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: "10px" },
-  loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", padding: "40px" },
-  spinner: { width: "40px", height: "40px", border: "4px solid #f3f3f3", borderTop: "4px solid #2563eb", borderRadius: "50%", animation: "spin 1s linear infinite" },
-  errorContainer: { textAlign: "center", padding: "30px" },
-  retryBtn: { background: "#dc2626", color: "#fff", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", marginTop: "10px" },
-  footer: { background: "#0f172a", color: "#94a3b8", padding: "40px 20px 20px", borderRadius: "12px", marginTop: "40px" },
-  footerTop: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: "30px", marginBottom: "30px", borderBottom: "1px solid #334155", paddingBottom: "30px" },
-  footerBottom: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "15px", fontSize: "14px" },
-  paymentIcons: { display: "flex", gap: "15px" }
+  container: { padding: 20, fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif", background: "#f8fafc", minHeight: "100vh" },
+  navbar: { display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#fff", padding: "12px 24px", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", marginBottom: "24px" },
+  logoSection: { display: "flex", alignItems: "center", gap: "12px" },
+  menuIcon: { fontSize: "20px", color: "#334155" },
+  logo: { margin: 0, fontSize: "22px", fontWeight: "700", color: "#2563eb", letterSpacing: "-0.02em" },
+  searchWrapper: { display: "flex", alignItems: "center", position: "relative", width: "40%" },
+  searchIcon: { position: "absolute", left: "12px", color: "#94a3b8" },
+  searchInput: { width: "100%", padding: "10px 12px 10px 38px", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "14px", background: "#f8fafc", outline: "none" },
+  navActions: { display: "flex", gap: "24px" },
+  navItem: { display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#475569", fontWeight: "500", cursor: "pointer" },
+  hero: { background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", padding: "48px", borderRadius: "16px", marginBottom: "32px", display: "flex", alignItems: "center", color: "#1e293b" },
+  shopBtn: { background: "#2563eb", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "14px" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "24px", marginBottom: "40px" },
+  card: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "16px", position: "relative", display: "flex", flexDirection: "column" },
+  wishlistIconContainer: { position: "absolute", top: "12px", right: "12px", cursor: "pointer", zIndex: 10 },
+  discountBadge: { position: "absolute", top: "12px", left: "12px", background: "#dc2626", color: "#fff", padding: "4px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: "700" },
+  image: { width: "100%", height: "180px", objectFit: "contain", marginBottom: "12px" },
+  noImagePlaceholder: { width: "100%", height: "180px", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", borderRadius: "8px", marginBottom: "12px" },
+  productName: { margin: "0 0 4px 0", fontSize: "15px", fontWeight: "600", color: "#1e293b" },
+  brandText: { margin: "0 0 8px 0", fontSize: "12px", color: "#64748b" },
+  priceRow: { display: "flex", alignItems: "center", gap: "8px", margin: "8px 0" },
+  price: { fontSize: "18px", fontWeight: "700", color: "#0f172a" },
+  originalPrice: { fontSize: "13px", color: "#94a3b8", textDecoration: "line-through" },
+  buttonGroup: { display: "flex", gap: "8px", marginTop: "auto", paddingTop: "12px" },
+  addBtn: { background: "#f1f5f9", color: "#1e293b", border: "none", padding: "10px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "13px", flex: 1 },
+  goCartBtn: { background: "#2563eb", color: "#fff", border: "none", padding: "10px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "13px", flex: 1 },
+  buyNowBtn: { background: "#166534", color: "#fff", border: "none", padding: "10px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "13px", flex: 1 },
+  outOfStockBtn: { background: "#cbd5e1", color: "#64748b", border: "none", padding: "10px", borderRadius: "8px", cursor: "not-allowed", fontSize: "13px", flex: 1 },
+  backToShopBtn: { background: "none", border: "1px solid #cbd5e1", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", color: "#475569", fontWeight: "500" },
+  emptyStateContainer: { textAlign: "center", padding: "64px 24px", background: "#fff", borderRadius: "12px", border: "1px solid #e2e8f0" },
+  shopNowRedirectBtn: { background: "#2563eb", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", marginTop: "16px" },
+  cartPageGrid: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px" },
+  cartItemsListContainer: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px" },
+  cartItemRow: { display: "flex", alignItems: "center", gap: "16px", padding: "16px 0", borderBottom: "1px solid #f1f5f9" },
+  cartPageImage: { width: "64px", height: "64px", objectFit: "contain" },
+  qtyBox: { display: "flex", alignItems: "center", gap: "12px", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "4px" },
+  qtyBtn: { background: "none", border: "none", cursor: "pointer", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold" },
+  cartTrashBtn: { background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "16px", padding: "8px" },
+  summaryCard: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", height: "fit-content" },
+  buyBtn: { width: "100%", background: "#2563eb", color: "#fff", border: "none", padding: "12px", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "15px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" },
+  cancelBtn: { width: "100%", background: "none", border: "1px solid #cbd5e1", padding: "12px", borderRadius: "8px", cursor: "pointer", fontWeight: "500", fontSize: "15px", marginTop: "8px", color: "#64748b" },
+  overlay: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15, 23, 42, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: "20px" },
+  modal: { background: "#fff", borderRadius: "16px", padding: "24px", width: "100%", maxHeight: "90vh", overflowY: "auto", maxWidth: "540px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)" },
+  formLabel: { display: "block", fontSize: "13px", fontWeight: "600", color: "#475569", marginBottom: "6px", marginTop: "12px" },
+  input: { width: "100%", padding: "10px 12px", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "14px", outline: "none", boxSizing: "border-box", marginBottom: "12px" },
+  paymentMethodContainer: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" },
+  paymentOptionCard: { display: "flex", alignItems: "center", gap: "12px", padding: "12px", border: "1px solid #e2e8f0", borderRadius: "8px", cursor: "pointer" },
+  credentialBox: { background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "16px", marginBottom: "16px" },
+  footer: { marginTop: "64px", borderTop: "1px solid #e2e8f0", paddingTop: "32px", color: "#64748b" },
+  footerTop: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "32px", marginBottom: "32px" },
+  footerBottom: { display: "flex", justifyContent: "space-between", borderTop: "1px solid #f1f5f9", paddingTop: "16px", fontSize: "13px" },
+  paymentIcons: { display: "flex", gap: "12px" },
+  loadingContainer: { textAlign: "center", padding: "48px" },
+  spinner: { width: "40px", height: "40px", border: "4px solid #e2e8f0", borderTopColor: "#2563eb", borderRadius: "50%", margin: "0 auto", animation: "spin 1s linear infinite" },
+  errorContainer: { textAlign: "center", padding: "32px" },
+  retryBtn: { background: "#cbd5e1", color: "#1e293b", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", marginLeft: "8px" },
+  noProducts: { gridColumn: "1/-1", textAlign: "center", padding: "48px", color: "#64748b" }
 };

@@ -1,7 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminMenu from "./AdminMenu";
 import { useAuth } from "../../context/AuthContext";
+import {
+  FaStore,
+  FaBoxOpen,
+  FaShoppingCart,
+  FaUsers,
+  FaCreditCard,
+  FaBell,
+  FaCheck,
+} from "react-icons/fa";
 
 // ─── Default Config ───────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
@@ -59,11 +68,9 @@ const getSettings = () => {
 
 const saveSettings = (settings) => {
   localStorage.setItem("admin_settings", JSON.stringify(settings));
-  // Also sync enabled_fields so ProductForm reads it
   localStorage.setItem("enabled_fields", JSON.stringify(settings.products.enabledFields));
 };
 
-// ─── All product fields available ────────────────────────────────────────────
 const ALL_PRODUCT_FIELDS = [
   { name: "name",        label: "Product Name",  required: true },
   { name: "category",    label: "Category",      required: false },
@@ -106,59 +113,91 @@ export default function AdminSettings() {
   };
 
   const sections = [
-    { id: "store",         label: "🏪 Store Info" },
-    { id: "orders",        label: "📦 Orders" },
-    { id: "products",      label: "🛒 Products" },
-    { id: "users",         label: "👥 Users" },
-    { id: "payment",       label: "💳 Payment" },
-    { id: "notifications", label: "🔔 Notifications" },
+    { id: "store",         label: "Store Info",     icon: <FaStore /> },
+    { id: "orders",        label: "Orders",         icon: <FaBoxOpen /> },
+    { id: "products",      label: "Products",       icon: <FaShoppingCart /> },
+    { id: "users",         label: "Users",          icon: <FaUsers /> },
+    { id: "payment",       label: "Payment",        icon: <FaCreditCard /> },
+    { id: "notifications", label: "Notifications",  icon: <FaBell /> },
   ];
 
   return (
     <div style={s.container}>
       <AdminMenu onLogout={handleSignOut} />
       <main style={s.mainBody}>
-        <h2 style={s.pageTitle}>Settings</h2>
+        <div style={s.pageHeader}>
+          <h2 style={s.pageTitle}>Settings</h2>
+          <p style={s.pageSub}>Manage your store configuration</p>
+        </div>
+
         <div style={s.layout}>
 
           {/* ── Left Tabs ── */}
           <div style={s.sectionList}>
-            {sections.map(sec => (
-              <button key={sec.id} onClick={() => setActiveSection(sec.id)}
-                style={{ ...s.sectionBtn, ...(activeSection === sec.id ? s.activeSectionBtn : {}) }}>
-                {sec.label}
-              </button>
-            ))}
+            {sections.map(sec => {
+              const isActive = activeSection === sec.id;
+              return (
+                <button
+                  key={sec.id}
+                  onClick={() => setActiveSection(sec.id)}
+                  style={{ ...s.sectionBtn, ...(isActive ? s.activeSectionBtn : {}) }}
+                >
+                  <span style={{
+                    ...s.sectionIcon,
+                    color: isActive ? "#3b82f6" : "#94a3b8",
+                  }}>
+                    {sec.icon}
+                  </span>
+                  {sec.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* ── Right Panel ── */}
           <div style={s.panel}>
-            {saved && <div style={s.successMsg}>✅ Changes saved!</div>}
+
+            {saved && (
+              <div style={s.successMsg}>
+                <FaCheck style={{ fontSize: "13px" }} /> Changes saved
+              </div>
+            )}
 
             {/* ══ STORE INFO ══ */}
             {activeSection === "store" && (
               <div>
-                <h3 style={s.panelTitle}>Store Information</h3>
+                <h3 style={s.panelTitle}>Store information</h3>
                 {[
-                  { label: " Name",    field: "name",     type: "text" },
-                  { label: " Email",   field: "email",    type: "email" },
-                  { label: " Phone",   field: "phone",    type: "text" },
+                  { label: "Store name", field: "name",  type: "text" },
+                  { label: "Email",      field: "email", type: "email" },
+                  { label: "Phone",      field: "phone", type: "text" },
                 ].map(item => (
                   <div key={item.field} style={s.fieldGroup}>
                     <label style={s.label}>{item.label}</label>
-                    <input style={s.input} type={item.type} value={settings.store[item.field]}
-                      onChange={e => updateSection("store", item.field, e.target.value)} />
+                    <input
+                      style={s.input}
+                      type={item.type}
+                      value={settings.store[item.field]}
+                      onChange={e => updateSection("store", item.field, e.target.value)}
+                    />
                   </div>
                 ))}
                 <div style={s.fieldGroup}>
-                  <label style={s.label}> Address</label>
-                  <textarea style={s.textarea} rows={3} value={settings.store.address}
-                    onChange={e => updateSection("store", "address", e.target.value)} />
+                  <label style={s.label}>Address</label>
+                  <textarea
+                    style={s.textarea}
+                    rows={3}
+                    value={settings.store.address}
+                    onChange={e => updateSection("store", "address", e.target.value)}
+                  />
                 </div>
                 <div style={s.fieldGroup}>
                   <label style={s.label}>Currency</label>
-                  <select style={s.input} value={settings.store.currency}
-                    onChange={e => updateSection("store", "currency", e.target.value)}>
+                  <select
+                    style={s.input}
+                    value={settings.store.currency}
+                    onChange={e => updateSection("store", "currency", e.target.value)}
+                  >
                     <option>INR (₹)</option>
                     <option>USD ($)</option>
                     <option>EUR (€)</option>
@@ -170,11 +209,11 @@ export default function AdminSettings() {
             {/* ══ ORDERS ══ */}
             {activeSection === "orders" && (
               <div>
-                <h3 style={s.panelTitle}>Order Settings</h3>
+                <h3 style={s.panelTitle}>Order settings</h3>
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Allow Order Cancellation</div>
+                    <div style={s.toggleTitle}>Allow order cancellation</div>
                     <div style={s.toggleSub}>Customers can cancel orders</div>
                   </div>
                   <Switch checked={settings.orders.allowCancellation}
@@ -183,7 +222,7 @@ export default function AdminSettings() {
 
                 {settings.orders.allowCancellation && (
                   <div style={s.fieldGroup}>
-                    <label style={s.label}>Cancellation Window (hours)</label>
+                    <label style={s.label}>Cancellation window (hours)</label>
                     <input style={s.input} type="number" value={settings.orders.cancellationWindow}
                       onChange={e => updateSection("orders", "cancellationWindow", e.target.value)} />
                   </div>
@@ -191,7 +230,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Allow Returns</div>
+                    <div style={s.toggleTitle}>Allow returns</div>
                     <div style={s.toggleSub}>Customers can return delivered orders</div>
                   </div>
                   <Switch checked={settings.orders.allowReturns}
@@ -200,7 +239,7 @@ export default function AdminSettings() {
 
                 {settings.orders.allowReturns && (
                   <div style={s.fieldGroup}>
-                    <label style={s.label}>Return Window (days)</label>
+                    <label style={s.label}>Return window (days)</label>
                     <input style={s.input} type="number" value={settings.orders.returnWindow}
                       onChange={e => updateSection("orders", "returnWindow", e.target.value)} />
                   </div>
@@ -208,7 +247,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Auto Confirm Orders</div>
+                    <div style={s.toggleTitle}>Auto confirm orders</div>
                     <div style={s.toggleSub}>Automatically confirm new orders</div>
                   </div>
                   <Switch checked={settings.orders.autoConfirm}
@@ -216,7 +255,7 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>Default Order Status</label>
+                  <label style={s.label}>Default order status</label>
                   <select style={s.input} value={settings.orders.defaultStatus}
                     onChange={e => updateSection("orders", "defaultStatus", e.target.value)}>
                     {settings.orders.statuses.map(st => <option key={st}>{st}</option>)}
@@ -224,15 +263,14 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>Order Statuses</label>
+                  <label style={s.label}>Order statuses</label>
                   <div style={s.tagList}>
                     {settings.orders.statuses.map(st => (
                       <span key={st} style={s.tag}>
                         {st}
-                        <button style={s.tagRemove} onClick={() => {
-                          const updated = settings.orders.statuses.filter(x => x !== st);
-                          updateSection("orders", "statuses", updated);
-                        }}>×</button>
+                        <button style={s.tagRemove} onClick={() =>
+                          updateSection("orders", "statuses", settings.orders.statuses.filter(x => x !== st))
+                        }>×</button>
                       </span>
                     ))}
                   </div>
@@ -253,16 +291,19 @@ export default function AdminSettings() {
             {/* ══ PRODUCTS ══ */}
             {activeSection === "products" && (
               <div>
-                <h3 style={s.panelTitle}>Product Settings</h3>
+                <h3 style={s.panelTitle}>Product settings</h3>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>Product Form Fields</label>
-                  <p style={s.hint}>Toggle which fields appear in the Add/Edit Product form.</p>
+                  <label style={s.label}>Product form fields</label>
+                  <p style={s.hint}>Toggle which fields appear in the Add / Edit product form.</p>
                   <div style={s.fieldsGrid}>
                     {ALL_PRODUCT_FIELDS.map(field => {
                       const isEnabled = settings.products.enabledFields.includes(field.name);
                       return (
-                        <div key={field.name} style={{ ...s.fieldCard, ...(isEnabled ? s.fieldCardOn : s.fieldCardOff) }}>
+                        <div key={field.name} style={{
+                          ...s.fieldCard,
+                          ...(isEnabled ? s.fieldCardOn : s.fieldCardOff),
+                        }}>
                           <div>
                             <div style={s.fieldName}>{field.label}</div>
                             {field.required && <span style={s.requiredBadge}>Required</span>}
@@ -276,8 +317,12 @@ export default function AdminSettings() {
                                 : [...current, field.name];
                               updateSection("products", "enabledFields", updated);
                             }}
-                            style={{ ...s.toggleBtn, ...(isEnabled ? s.toggleOn : s.toggleOff), ...(field.required ? s.toggleDisabled : {}) }}>
-                            {field.required ? "Always On" : isEnabled ? "Enabled ✓" : "+ Add"}
+                            style={{
+                              ...s.toggleBtn,
+                              ...(field.required ? s.toggleDisabled : isEnabled ? s.toggleOn : s.toggleOff),
+                            }}
+                          >
+                            {field.required ? "Always on" : isEnabled ? "Enabled" : "Add"}
                           </button>
                         </div>
                       );
@@ -286,14 +331,14 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>Product Categories</label>
+                  <label style={s.label}>Product categories</label>
                   <div style={s.tagList}>
                     {settings.products.categories.map(cat => (
                       <span key={cat} style={s.tag}>
                         {cat}
-                        <button style={s.tagRemove} onClick={() => {
-                          updateSection("products", "categories", settings.products.categories.filter(c => c !== cat));
-                        }}>×</button>
+                        <button style={s.tagRemove} onClick={() =>
+                          updateSection("products", "categories", settings.products.categories.filter(c => c !== cat))
+                        }>×</button>
                       </span>
                     ))}
                   </div>
@@ -311,7 +356,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Allow Out of Stock Products</div>
+                    <div style={s.toggleTitle}>Allow out of stock products</div>
                     <div style={s.toggleSub}>Show products even when stock is 0</div>
                   </div>
                   <Switch checked={settings.products.allowOutOfStock}
@@ -320,7 +365,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Show Ratings</div>
+                    <div style={s.toggleTitle}>Show ratings</div>
                     <div style={s.toggleSub}>Display product ratings on storefront</div>
                   </div>
                   <Switch checked={settings.products.showRatings}
@@ -332,11 +377,11 @@ export default function AdminSettings() {
             {/* ══ USERS ══ */}
             {activeSection === "users" && (
               <div>
-                <h3 style={s.panelTitle}>User Settings</h3>
+                <h3 style={s.panelTitle}>User settings</h3>
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Allow New Registrations</div>
+                    <div style={s.toggleTitle}>Allow new registrations</div>
                     <div style={s.toggleSub}>Let new customers sign up</div>
                   </div>
                   <Switch checked={settings.users.allowRegistration}
@@ -345,7 +390,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Require Email Verification</div>
+                    <div style={s.toggleTitle}>Require email verification</div>
                     <div style={s.toggleSub}>Users must verify email before login</div>
                   </div>
                   <Switch checked={settings.users.requireEmailVerification}
@@ -353,7 +398,7 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>Default Role for New Users</label>
+                  <label style={s.label}>Default role for new users</label>
                   <select style={s.input} value={settings.users.defaultRole}
                     onChange={e => updateSection("users", "defaultRole", e.target.value)}>
                     {settings.users.roles.map(r => <option key={r}>{r}</option>)}
@@ -361,14 +406,14 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={s.fieldGroup}>
-                  <label style={s.label}>User Roles</label>
+                  <label style={s.label}>User roles</label>
                   <div style={s.tagList}>
                     {settings.users.roles.map(role => (
                       <span key={role} style={s.tag}>
                         {role}
-                        <button style={s.tagRemove} onClick={() => {
-                          updateSection("users", "roles", settings.users.roles.filter(r => r !== role));
-                        }}>×</button>
+                        <button style={s.tagRemove} onClick={() =>
+                          updateSection("users", "roles", settings.users.roles.filter(r => r !== role))
+                        }>×</button>
                       </span>
                     ))}
                   </div>
@@ -389,11 +434,11 @@ export default function AdminSettings() {
             {/* ══ PAYMENT ══ */}
             {activeSection === "payment" && (
               <div>
-                <h3 style={s.panelTitle}>Payment Settings</h3>
+                <h3 style={s.panelTitle}>Payment settings</h3>
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Cash on Delivery</div>
+                    <div style={s.toggleTitle}>Cash on delivery</div>
                     <div style={s.toggleSub}>Allow COD for orders</div>
                   </div>
                   <Switch checked={settings.payment.codEnabled}
@@ -402,7 +447,7 @@ export default function AdminSettings() {
 
                 <div style={s.toggleRow}>
                   <div>
-                    <div style={s.toggleTitle}>Online Payment</div>
+                    <div style={s.toggleTitle}>Online payment</div>
                     <div style={s.toggleSub}>Allow online payments</div>
                   </div>
                   <Switch checked={settings.payment.onlineEnabled}
@@ -412,7 +457,7 @@ export default function AdminSettings() {
                 {settings.payment.onlineEnabled && (
                   <>
                     <div style={s.fieldGroup}>
-                      <label style={s.label}>Payment Gateway</label>
+                      <label style={s.label}>Payment gateway</label>
                       <select style={s.input} value={settings.payment.gateway}
                         onChange={e => updateSection("payment", "gateway", e.target.value)}>
                         <option>Razorpay</option>
@@ -422,7 +467,7 @@ export default function AdminSettings() {
                       </select>
                     </div>
                     <div style={s.fieldGroup}>
-                      <label style={s.label}>API Key</label>
+                      <label style={s.label}>API key</label>
                       <input style={s.input} type="password" placeholder="Enter API key"
                         value={settings.payment.apiKey}
                         onChange={e => updateSection("payment", "apiKey", e.target.value)} />
@@ -445,14 +490,14 @@ export default function AdminSettings() {
             {/* ══ NOTIFICATIONS ══ */}
             {activeSection === "notifications" && (
               <div>
-                <h3 style={s.panelTitle}>Notification Settings</h3>
+                <h3 style={s.panelTitle}>Notification settings</h3>
 
                 {[
-                  { label: "New Order Alerts",       sub: "Get notified when a new order is placed", field: "newOrder" },
-                  { label: "Low Stock Warnings",      sub: "Alert when product stock is low",         field: "lowStock" },
-                  { label: "New User Registrations",  sub: "Alert when a new user signs up",          field: "newUser" },
-                  { label: "Payment Confirmations",   sub: "Alert on successful payments",            field: "paymentConfirm" },
-                  { label: "Weekly Sales Report",     sub: "Receive weekly summary via email",        field: "weeklySales" },
+                  { label: "New order alerts",      sub: "Get notified when a new order is placed", field: "newOrder" },
+                  { label: "Low stock warnings",    sub: "Alert when product stock is low",         field: "lowStock" },
+                  { label: "New user registrations",sub: "Alert when a new user signs up",          field: "newUser" },
+                  { label: "Payment confirmations", sub: "Alert on successful payments",            field: "paymentConfirm" },
+                  { label: "Weekly sales report",   sub: "Receive weekly summary via email",        field: "weeklySales" },
                 ].map(item => (
                   <div key={item.field} style={s.toggleRow}>
                     <div>
@@ -466,7 +511,7 @@ export default function AdminSettings() {
 
                 {settings.notifications.lowStock && (
                   <div style={s.fieldGroup}>
-                    <label style={s.label}>Low Stock Threshold (units)</label>
+                    <label style={s.label}>Low stock threshold (units)</label>
                     <input style={s.input} type="number" value={settings.notifications.lowStockThreshold}
                       onChange={e => updateSection("notifications", "lowStockThreshold", e.target.value)} />
                   </div>
@@ -481,56 +526,136 @@ export default function AdminSettings() {
   );
 }
 
-// ─── Toggle Switch Component ──────────────────────────────────────────────────
+// ─── Toggle Switch ────────────────────────────────────────────────────────────
 const Switch = ({ checked, onChange }) => (
-  <div onClick={() => onChange(!checked)} style={{
-    width: "48px", height: "26px", borderRadius: "13px", cursor: "pointer",
-    backgroundColor: checked ? "#22c55e" : "#cbd5e1",
-    position: "relative", transition: "background 0.2s", flexShrink: 0
-  }}>
+  <div
+    onClick={() => onChange(!checked)}
+    style={{
+      width: "44px", height: "24px", borderRadius: "12px", cursor: "pointer",
+      backgroundColor: checked ? "#3b82f6" : "#e2e8f0",
+      position: "relative", transition: "background 0.2s", flexShrink: 0,
+    }}
+  >
     <div style={{
-      width: "20px", height: "20px", borderRadius: "50%", backgroundColor: "#fff",
+      width: "18px", height: "18px", borderRadius: "50%", backgroundColor: "#fff",
       position: "absolute", top: "3px",
-      left: checked ? "25px" : "3px", transition: "left 0.2s",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+      left: checked ? "23px" : "3px", transition: "left 0.2s",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
     }} />
   </div>
 );
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = {
-  container: { display: "flex", minHeight: "100vh", backgroundColor: "#f1f5f9", fontFamily: "system-ui, sans-serif" },
-  mainBody: { flex: 1, padding: "30px" },
-  pageTitle: { fontSize: "24px", margin: "0 0 24px 0", color: "#0f172a" },
-  layout: { display: "flex", gap: "24px" },
-  sectionList: { width: "220px", display: "flex", flexDirection: "column", gap: "6px", flexShrink: 0 },
-  sectionBtn: { textAlign: "left", padding: "12px 16px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: "6px", cursor: "pointer", fontSize: "14px", color: "#475569", fontWeight: "500" },
-  activeSectionBtn: { backgroundColor: "#1e293b", color: "#fff", border: "1px solid #1e293b" },
-  panel: { flex: 1, backgroundColor: "#fff", padding: "30px", borderRadius: "8px", border: "1px solid #e2e8f0" },
-  panelTitle: { fontSize: "18px", margin: "0 0 20px 0", color: "#0f172a", borderBottom: "1px solid #e2e8f0", paddingBottom: "12px" },
-  fieldGroup: { marginBottom: "20px" },
-  label: { display: "block", marginBottom: "6px", fontSize: "13px", fontWeight: "600", color: "#475569" },
-  hint: { fontSize: "12px", color: "#94a3b8", margin: "0 0 12px 0" },
-  input: { width: "100%", padding: "10px 14px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" },
-  textarea: { width: "100%", padding: "10px 14px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "14px", boxSizing: "border-box" },
-  toggleRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0", borderBottom: "1px solid #f1f5f9", gap: "16px" },
-  toggleTitle: { fontSize: "14px", fontWeight: "600", color: "#0f172a" },
+  container: {
+    display: "flex", minHeight: "100vh",
+    backgroundColor: "#f1f5f9", fontFamily: "system-ui, sans-serif",
+  },
+  mainBody: { flex: 1, padding: "clamp(16px, 3vw, 36px)", minWidth: 0 },
+  pageHeader: { marginBottom: "24px" },
+  pageTitle: { fontSize: "20px", fontWeight: "500", margin: 0, color: "#0f172a" },
+  pageSub: { fontSize: "13px", color: "#64748b", margin: "3px 0 0" },
+
+  layout: { display: "flex", gap: "20px", alignItems: "start", flexWrap: "wrap" },
+
+  /* Left tabs */
+  sectionList: {
+    width: "200px", minWidth: "160px", display: "flex",
+    flexDirection: "column", gap: "4px", flexShrink: 0,
+  },
+  sectionBtn: {
+    display: "flex", alignItems: "center", gap: "10px",
+    textAlign: "left", padding: "10px 14px",
+    background: "#fff", border: "0.5px solid #e2e8f0",
+    borderRadius: "8px", cursor: "pointer",
+    fontSize: "13px", color: "#475569", fontWeight: "400",
+  },
+  activeSectionBtn: {
+    background: "#eff6ff", borderColor: "#bfdbfe",
+    color: "#1d4ed8", fontWeight: "500",
+  },
+  sectionIcon: { fontSize: "14px", flexShrink: 0 },
+
+  /* Right panel */
+  panel: {
+    flex: 1, minWidth: "280px", backgroundColor: "#fff",
+    padding: "24px", borderRadius: "12px",
+    border: "0.5px solid #e2e8f0",
+  },
+  panelTitle: {
+    fontSize: "15px", fontWeight: "500", margin: "0 0 20px",
+    color: "#0f172a", borderBottom: "0.5px solid #e2e8f0", paddingBottom: "12px",
+  },
+
+  fieldGroup: { marginBottom: "18px" },
+  label: { display: "block", marginBottom: "5px", fontSize: "12px", fontWeight: "500", color: "#64748b" },
+  hint: { fontSize: "12px", color: "#94a3b8", margin: "0 0 10px" },
+  input: {
+    width: "100%", padding: "9px 12px",
+    border: "0.5px solid #e2e8f0", borderRadius: "8px",
+    fontSize: "13px", boxSizing: "border-box",
+    color: "#0f172a", background: "#fff", outline: "none",
+  },
+  textarea: {
+    width: "100%", padding: "9px 12px",
+    border: "0.5px solid #e2e8f0", borderRadius: "8px",
+    fontSize: "13px", boxSizing: "border-box",
+    color: "#0f172a", resize: "vertical",
+  },
+
+  toggleRow: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    padding: "13px 0", borderBottom: "0.5px solid #f1f5f9", gap: "16px",
+  },
+  toggleTitle: { fontSize: "13px", fontWeight: "500", color: "#0f172a" },
   toggleSub: { fontSize: "12px", color: "#94a3b8", marginTop: "2px" },
-  tagList: { display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" },
-  tag: { display: "flex", alignItems: "center", gap: "6px", padding: "4px 12px", backgroundColor: "#e0f2fe", color: "#0369a1", borderRadius: "20px", fontSize: "13px", fontWeight: "500" },
-  tagRemove: { background: "none", border: "none", cursor: "pointer", color: "#0369a1", fontSize: "16px", lineHeight: 1, padding: 0 },
+
+  tagList: { display: "flex", flexWrap: "wrap", gap: "7px", marginBottom: "10px" },
+  tag: {
+    display: "flex", alignItems: "center", gap: "6px",
+    padding: "4px 10px", backgroundColor: "#eff6ff",
+    color: "#3b82f6", borderRadius: "20px", fontSize: "12px", fontWeight: "500",
+  },
+  tagRemove: {
+    background: "none", border: "none", cursor: "pointer",
+    color: "#93c5fd", fontSize: "15px", lineHeight: 1, padding: 0,
+  },
   addRow: { display: "flex", gap: "8px" },
-  addInput: { flex: 1, padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: "6px", fontSize: "14px" },
-  addBtn: { padding: "8px 16px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600", whiteSpace: "nowrap" },
-  fieldsGrid: { display: "flex", flexDirection: "column", gap: "10px" },
-  fieldCard: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: "8px", border: "1px solid #e2e8f0" },
-  fieldCardOn: { backgroundColor: "#f0fdf4", borderColor: "#86efac" },
+  addInput: {
+    flex: 1, padding: "8px 12px",
+    border: "0.5px solid #e2e8f0", borderRadius: "8px", fontSize: "13px",
+  },
+  addBtn: {
+    padding: "8px 14px", backgroundColor: "#3b82f6", color: "#fff",
+    border: "none", borderRadius: "8px", cursor: "pointer",
+    fontSize: "13px", fontWeight: "500", whiteSpace: "nowrap",
+  },
+
+  fieldsGrid: { display: "flex", flexDirection: "column", gap: "8px" },
+  fieldCard: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    padding: "11px 14px", borderRadius: "8px", border: "0.5px solid #e2e8f0",
+  },
+  fieldCardOn:  { backgroundColor: "#f0fdf4", borderColor: "#bbf7d0" },
   fieldCardOff: { backgroundColor: "#fafafa", borderColor: "#e2e8f0" },
-  fieldName: { fontSize: "14px", fontWeight: "600", color: "#0f172a" },
-  requiredBadge: { fontSize: "11px", backgroundColor: "#dbeafe", color: "#1d4ed8", padding: "2px 8px", borderRadius: "20px", fontWeight: "600" },
-  toggleBtn: { padding: "6px 14px", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" },
-  toggleOn: { backgroundColor: "#22c55e", color: "#fff" },
-  toggleOff: { backgroundColor: "#2563eb", color: "#fff" },
-  toggleDisabled: { backgroundColor: "#e2e8f0", color: "#94a3b8", cursor: "not-allowed" },
-  successMsg: { backgroundColor: "#dcfce7", color: "#166534", padding: "12px 16px", borderRadius: "6px", marginBottom: "20px", fontSize: "14px", fontWeight: "500" },
+  fieldName: { fontSize: "13px", fontWeight: "500", color: "#0f172a" },
+  requiredBadge: {
+    fontSize: "11px", backgroundColor: "#eff6ff", color: "#3b82f6",
+    padding: "2px 7px", borderRadius: "20px", fontWeight: "500",
+  },
+  toggleBtn: {
+    padding: "5px 12px", border: "none",
+    borderRadius: "6px", cursor: "pointer", fontSize: "12px", fontWeight: "500",
+  },
+  toggleOn:       { backgroundColor: "#dcfce7", color: "#16a34a" },
+  toggleOff:      { backgroundColor: "#eff6ff", color: "#3b82f6" },
+  toggleDisabled: { backgroundColor: "#f1f5f9", color: "#94a3b8", cursor: "not-allowed" },
+
+  successMsg: {
+    display: "flex", alignItems: "center", gap: "7px",
+    backgroundColor: "#f0fdf4", color: "#16a34a",
+    padding: "10px 14px", borderRadius: "8px",
+    marginBottom: "18px", fontSize: "13px", fontWeight: "500",
+    border: "0.5px solid #bbf7d0",
+  },
 };

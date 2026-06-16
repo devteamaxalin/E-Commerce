@@ -1,7 +1,8 @@
-import datetime
 import logging
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+import os
+import uuid
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,6 +13,9 @@ from sqlalchemy.orm import sessionmaker, Session
 
 from jose import jwt
 from passlib.context import CryptContext
+
+from datetime import datetime
+from datetime import datetime, timedelta
 
 # ========================= LOGGING =========================
 logging.basicConfig(level=logging.DEBUG)
@@ -39,6 +43,9 @@ SessionLocal = sessionmaker(
 
 # ========================= APP =========================
 app = FastAPI(title="LuxeShop API")
+UPLOAD_FOLDER = "uploads"
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,13 +67,11 @@ def get_password_hash(password: str):
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
 
-# ========================= JWT =========================
 def create_access_token(data: dict):
     to_encode = data.copy()
 
-    expire = (
-        datetime.datetime.utcnow()
-        + datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     to_encode.update({"exp": expire})
@@ -76,7 +81,6 @@ def create_access_token(data: dict):
         SECRET_KEY,
         algorithm=ALGORITHM
     )
-
 # ========================= DB DEPENDENCY =========================
 def get_db():
     db = SessionLocal()
@@ -140,6 +144,16 @@ class AddressCreate(BaseModel):
     label: str = "Home"
     address: str
     phone: str
+
+class ProfileUpdate(BaseModel):
+    first_name: str
+    last_name: str
+    phone: str = ""
+    bio: str = ""
+
+class CartItemCreate(BaseModel):
+    product_id: int
+    quantity: int = 1
 # ========================= ROUTES =========================
 @app.get("/")
 def home():
@@ -337,56 +351,41 @@ def login_access_token(
             detail=f"Login failed: {str(e)}"
         )
 
-# ========================= USERS =========================
+# =====================================================================
+# USERS (UPDATED TO FETCH PROFILE DETAILS)
+# =====================================================================
 @app.get("/api/users")
 def get_users(
     db: Session = Depends(get_db)
 ):
     try:
+        # Left Join combines base accounts with profile fields (first_name, last_name, bio, phone)
         result = db.execute(
-            text(
-                """
+            text("""
                 SELECT
-                    id,
-                    username,
-                    email,
-                    role
-                FROM users
-                """
-            )
+                    u.id,
+                    u.username,
+                    u.email,
+                    u.role,
+                    u.created_at,
+                    up.first_name,
+                    up.last_name,
+                    up.phone,
+                    up.bio,
+                    up.avatar_url
+                FROM users u
+                LEFT JOIN user_profiles up ON u.id = up.user_id
+            """)
         ).fetchall()
 
-        return [
-            dict(row._mapping)
-            for row in result
-        ]
+        return [dict(row._mapping) for row in result]
 
     except Exception as e:
-        logger.error(
-            f"Get users error: {str(e)}",
-            exc_info=True
-        )
-
+        logger.error(f"Get users error: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch users: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve user ledger profiles: {str(e)}"
         )
-    
-@app.get("/api/products")
-def get_products(db: Session = Depends(get_db)):
-
-    result = db.execute(
-        text("""
-            SELECT *
-            FROM products
-            ORDER BY id DESC
-        """)
-    ).fetchall()
-
-    return [
-        dict(row._mapping)
-        for row in result
-    ]
  # ========================= PRODUCTS =========================
 
 @app.get("/api/products")
@@ -753,6 +752,12 @@ def get_order_detail(
         "total":    f"₹{float(order.total_amount):,.0f}",
     }
  
+ 
+
+
+
+
+
  
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CANCEL ORDER  —  DELETE /api/orders/{order_id}
@@ -1223,3 +1228,268 @@ def remove_from_wishlist(
     db.commit()
 
     return {"message": "Removed from wishlist"}
+
+@app.get("/api/profile")
+def get_profile(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    profile = db.execute(
+        text("""
+            SELECT
+                first_name,
+                last_name,
+                phone,
+                bio,
+                avatar_url
+            FROM user_profiles
+            WHERE user_id = :user_id
+        """),
+        {"user_id": user_id}
+    ).fetchone()
+
+    if not profile:
+        return {
+            "first_name": "",
+            "last_name": "",
+            "phone": "",
+            "bio": "",
+            "avatar_url": ""
+        }
+
+    return dict(profile._mapping)
+
+@app.put("/api/profile")
+def update_profile(
+    data: ProfileUpdate,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    existing = db.execute(
+        text("""
+            SELECT id
+            FROM user_profiles
+            WHERE user_id = :user_id
+        """),
+        {"user_id": user_id}
+    ).fetchone()
+
+    if existing:
+
+        db.execute(
+            text("""
+                UPDATE user_profiles
+                SET
+                    first_name = :first_name,
+                    last_name = :last_name,
+                    phone = :phone,
+                    bio = :bio
+                WHERE user_id = :user_id
+            """),
+            {
+                "user_id": user_id,
+                "first_name": data.first_name,
+                "last_name": data.last_name,
+                "phone": data.phone,
+                "bio": data.bio
+            }
+        )
+
+    else:
+
+        db.execute(
+            text("""
+                INSERT INTO user_profiles
+                (
+                    user_id,
+                    first_name,
+                    last_name,
+                    phone,
+                    bio
+                )
+                VALUES
+                (
+                    :user_id,
+                    :first_name,
+                    :last_name,
+                    :phone,
+                    :bio
+                )
+            """),
+            {
+                "user_id": user_id,
+                "first_name": data.first_name,
+                "last_name": data.last_name,
+                "phone": data.phone,
+                "bio": data.bio
+            }
+        )
+
+    db.commit()
+
+    return {
+        "message": "Profile updated successfully"
+    }
+
+@app.post("/api/profile/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    extension = file.filename.split(".")[-1]
+    filename = f"{uuid.uuid4()}.{extension}"
+
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    with open(filepath, "wb") as buffer:
+        buffer.write(await file.read())
+
+    avatar_url = f"/uploads/{filename}"
+
+    db.execute(
+        text("""
+            UPDATE user_profiles
+            SET avatar_url = :avatar_url
+            WHERE user_id = :user_id
+        """),
+        {
+            "avatar_url": avatar_url,
+            "user_id": user_id
+        }
+    )
+
+    db.commit()
+
+    return {
+        "message": "Avatar uploaded successfully",
+        "avatar_url": avatar_url
+    }
+
+
+@app.delete("/api/profile/avatar")
+def remove_avatar(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    db.execute(
+        text("""
+            UPDATE user_profiles
+            SET avatar_url = NULL
+            WHERE user_id = :user_id
+        """),
+        {
+            "user_id": user_id
+        }
+    )
+
+    db.commit()
+
+    return {
+        "message": "Avatar removed successfully"
+    }
+@app.post("/api/cart")
+def add_to_cart(
+    item: CartItemCreate,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    existing = db.execute(
+        text("""
+            SELECT id
+            FROM cart
+            WHERE user_id = :user_id
+            AND product_id = :product_id
+        """),
+        {
+            "user_id": user_id,
+            "product_id": item.product_id
+        }
+    ).fetchone()
+
+    if existing:
+        db.execute(
+            text("""
+                UPDATE cart
+                SET quantity = quantity + :quantity
+                WHERE id = :id
+            """),
+            {
+                "id": existing.id,
+                "quantity": item.quantity
+            }
+        )
+    else:
+        db.execute(
+            text("""
+                INSERT INTO cart
+                (
+                    user_id,
+                    product_id,
+                    quantity
+                )
+                VALUES
+                (
+                    :user_id,
+                    :product_id,
+                    :quantity
+                )
+            """),
+            {
+                "user_id": user_id,
+                "product_id": item.product_id,
+                "quantity": item.quantity
+            }
+        )
+
+    db.commit()
+
+    return {"message": "Added to cart"}
+
+@app.get("/api/cart")
+def get_cart(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    items = db.execute(
+        text("""
+            SELECT
+                c.id,
+                c.product_id,
+                c.quantity,
+                p.name,
+                p.price,
+                p.image_url
+            FROM cart c
+            JOIN products p
+                ON p.id = c.product_id
+            WHERE c.user_id = :user_id
+        """),
+        {
+            "user_id": user_id
+        }
+    ).mappings().all()
+
+    return items
+
+@app.delete("/api/cart/{cart_id}")
+def delete_cart_item(
+    cart_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    db.execute(
+        text("""
+            DELETE FROM cart
+            WHERE id = :cart_id
+            AND user_id = :user_id
+        """),
+        {
+            "cart_id": cart_id,
+            "user_id": user_id
+        }
+    )
+
+    db.commit()
+
+    return {"message": "Item removed"}
