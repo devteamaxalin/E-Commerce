@@ -3,7 +3,7 @@ import axios from "axios";
  
 const WishList = () => {
   const [wishlist, setWishlist] = useState([]);
-  useEffect(() => {
+  useEffect(() => {  
   fetchWishlist();
 }, []);
 

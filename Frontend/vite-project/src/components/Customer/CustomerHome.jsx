@@ -174,8 +174,7 @@ export default function Home({ wishlist = [], setWishlist }) {
     setMessageType(type);
     setTimeout(() => setMessage(""), 3000);
   };
-
-  const confirmOrder = async () => {
+const confirmOrder = async () => {
     if (!fullName.trim() || !address.trim() || !phone.trim() || !/^[0-9]{10}$/.test(phone.trim())) {
       showNotification("Please check and fill out your information properly.", "error");
       return;
@@ -201,46 +200,56 @@ export default function Home({ wishlist = [], setWishlist }) {
       return;
     }
 
+    // 1. Map data providing ALL required properties expected by CheckoutItem Pydantic schema
     const orderItems = buyNowProduct 
-      ? [{ product_id: buyNowProduct.id, name: buyNowProduct.name, price: buyNowProduct.price, quantity: 1, image_url: buyNowProduct.image || "" }]
+      ? [{ 
+          product_id: parseInt(buyNowProduct.id), 
+          name: buyNowProduct.name,                      
+          price: parseFloat(buyNowProduct.price), 
+          quantity: 1, 
+          image_url: buyNowProduct.image_url || ""       
+        }]
       : cart.map(item => ({
-          product_id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image_url: item.image || ""
+          product_id: parseInt(item.id),
+          name: item.name,                               
+          price: parseFloat(item.price),
+          quantity: parseInt(item.quantity),
+          image_url: item.image_url || ""                
         }));
 
+    // 2. Build payload structure matching CheckoutRequest model definition
     const payload = {
-      items: orderItems,
-      total_amount: buyNowProduct ? buyNowProduct.price : totalPrice,
-      full_name: fullName,
-      address: address,
-      phone: phone,
+      full_name: fullName.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
       payment_method: selectedPayment,
+      total_amount: parseFloat(buyNowProduct ? buyNowProduct.price : totalPrice),
+      items: orderItems,
     };
 
     try {
+      // 3. Post directly to your verified active checkout endpoint
       const res = await axios.post("http://127.0.0.1:8000/api/checkout", payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      showNotification(`Order Placed Successfully!`, "success");
+      showNotification("Order Placed Successfully!", "success");
 
+      // 4. Force state cleanups to clear out local input views
       if (!buyNowProduct) setCart([]);
       setFullName(""); setAddress(""); setPhone("");
       setSelectedPayment(""); setUpiId(""); setCardNumber(""); setCardName(""); setCardExpiry(""); setCardCvv("");
       setBuyNowProduct(null); 
       setShowCheckout(false); 
-      
-      // Redirect straight to user orders routing frame tracking layout page
-      navigate("/dashboard/orders");
+
+      // 5. Navigate relatively to the orders dashboard route sibling view
+      navigate("../orders");
+
     } catch (err) {
-      console.error(err);
-      showNotification(err.response?.data?.detail || "Failed to place order", "error");
+      console.error("Order submission failed:", err.response?.data || err.message);
+      showNotification(err.response?.data?.detail?.[0]?.msg || "Failed to place order", "error");
     }
   };
-
   return (
     <div style={styles.container}>
       {message && (

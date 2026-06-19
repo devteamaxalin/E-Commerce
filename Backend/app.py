@@ -1,3 +1,7 @@
+from task import (
+    send_welcome_email,
+    send_order_confirmation_email
+)
 import logging
 import os
 import uuid
@@ -67,6 +71,9 @@ class UserRegisterRequest(BaseModel):
     username: str
     email: EmailStr
     password: str
+    # These fields can be strings or None if a standard user registers without custom SMTP configs
+    sender_email: EmailStr | None = None      
+    sender_password: str | None = None
 
 class ProductCreate(BaseModel):
     name: str
@@ -140,70 +147,44 @@ def test_user(user_id=Depends(get_current_user_id)):
     return {"user_id": user_id}
 
 # ========================= USER REGISTRATION & AUTHENTICATION =========================
-@app.post("/api/register")
-def register_user(user_in: UserRegisterRequest, db: Session = Depends(get_db)):
-    try:
-        logger.debug(f"Registration started for email: {user_in.email}")
-
-        existing_email = db.execute(
-            text("SELECT id FROM users WHERE email = :email"), {"email": user_in.email}
-        ).fetchone()
-
-        if existing_email:
-            raise HTTPException(status_code=400, detail="Email already exists")
-
-        existing_username = db.execute(
-            text("SELECT id FROM users WHERE username = :username"), {"username": user_in.username}
-        ).fetchone()
-
-        if existing_username:
-            raise HTTPException(status_code=400, detail="Username already taken")
-
-        total_users = db.execute(text("SELECT COUNT(*) FROM users")).scalar() or 0
-        role = "admin" if total_users == 0 else "customer"
-        hashed_password = get_password_hash(user_in.password)
-
-        db.execute(
-            text("""
-                INSERT INTO users (username, email, password_hash, role)
-                VALUES (:username, :email, :password_hash, :role)
-            """),
-            {"username": user_in.username, "email": user_in.email, "password_hash": hashed_password, "role": role}
-        )
-        db.commit()
-
-        logger.info(f"User {user_in.email} registered successfully")
-        return {"status": "success", "message": "User registered successfully", "role": role}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Registration error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-
 @app.post("/api/login")
-def login_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    try:
-        user = db.execute(
-            text("SELECT id, email, password_hash, role FROM users WHERE email = :email"),
-            {"email": form_data.username}
-        ).fetchone()
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(get_db)
+):
+    # 1. Fetch user by email (OAuth2PasswordRequestForm maps the email field to form_data.username)
+    user_result = db.execute(
+        text("SELECT id, username, email, password_hash, role FROM users WHERE email = :email"),
+        {"email": form_data.username.strip().lower()}
+    ).fetchone()
 
-        if not user or not verify_password(form_data.password, user._mapping["password_hash"]):
-            raise HTTPException(status_code=401, detail="Incorrect email or password")
-
-        access_token = create_access_token(
-            {"sub": user._mapping["email"], "user_id": user._mapping["id"], "role": user._mapping["role"]}
+    if not user_result:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email credentials"
         )
-        return {"access_token": access_token, "token_type": "bearer", "role": user._mapping["role"]}
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+    # Convert row to dictionary mapping format
+    user = user_result._mapping
 
+    # 2. Verify the incoming password against the database hash string
+    # (Replace 'verify_password' with your app's actual password verification function)
+    if not verify_password(form_data.password, user["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password context string"
+        )
+
+    # 3. Generate JWT access token payload (Matching the properties expected by get_current_user_id)
+    # (Replace 'create_access_token' with your token signature function)
+    access_token = create_access_token(data={"user_id": user["id"]})
+
+    # 4. Return the exact JSON structure your Login.jsx file expects
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": user["role"] or "customer"
+    }
 # ========================= USERS SYSTEM LEDGER =========================
 @app.get("/api/users")
 def get_users(db: Session = Depends(get_db)):
@@ -331,6 +312,7 @@ def place_order(payload: CheckoutRequest, user_id: int = Depends(get_current_use
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
  
+    # 1. Insert order into the database
     order_result = db.execute(
         text("""
             INSERT INTO orders (user_id, total_amount, status, full_name, address, phone, payment_method)
@@ -345,6 +327,8 @@ def place_order(payload: CheckoutRequest, user_id: int = Depends(get_current_use
  
     order_id = order_result._mapping["id"]
  
+    # 2. Convert and insert your cart items into the database
+    items_payload = []
     for item in payload.items:
         db.execute(
             text("""
@@ -353,7 +337,43 @@ def place_order(payload: CheckoutRequest, user_id: int = Depends(get_current_use
             """),
             {"order_id": order_id, "product_id": item.product_id, "name": item.name, "price": item.price, "quantity": item.quantity, "image_url": item.image_url or ""}
         )
+        
+        # Build the dictionary list for SendGrid's HTML table layout
+        items_payload.append({
+            "name": item.name,
+            "quantity": item.quantity,
+            "price": item.price
+        })
+
     db.commit()
+
+    # 3. Fetch user details AND their custom SMTP configuration from PostgreSQL
+    user = db.execute(
+        text("""
+            SELECT email, username, sender_email, sender_password
+            FROM users
+            WHERE id = :id
+        """),
+        {"id": user_id}
+    ).fetchone()
+
+    # 4. SENDGRID FALLBACK ROUTINE
+    final_sender_email = user._mapping.get("sender_email") or "YOUR_VERIFIED_SENDGRID_SENDER_EMAIL@domain.com"
+    
+    # ⚠️ CRITICAL: Replace with your actual master SendGrid API key (Starts with SG.)
+    final_sendgrid_key = user._mapping.get("sender_password") or "SG.xxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+    # 5. Send data downstream to the SendGrid celery task
+    send_order_confirmation_email.delay(
+        recipient_email=user._mapping["email"],
+        username=user._mapping["username"],
+        order_id=order_id,
+        total_amount=payload.total_amount,
+        items=items_payload,
+        sender_email=final_sender_email,
+        sendgrid_api_key=final_sendgrid_key
+    )
+
     return {"message": "Order placed successfully", "order_id": f"#ORD{order_id}", "status": "Processing"}
 
 @app.get("/api/orders/my")
