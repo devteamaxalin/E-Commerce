@@ -37,7 +37,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Allows your React frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -147,6 +147,77 @@ def test_user(user_id=Depends(get_current_user_id)):
     return {"user_id": user_id}
 
 # ========================= USER REGISTRATION & AUTHENTICATION =========================
+# ========================= USER REGISTRATION & AUTHENTICATION =========================
+# ========================= USER REGISTRATION =========================
+@app.post("/api/register", status_code=201)
+def register_user(payload: UserRegisterRequest, db: Session = Depends(get_db)):
+    clean_email = payload.email.strip().lower()
+    
+    existing_user = db.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": clean_email}
+    ).fetchone()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="An account with this email address already exists."
+        )
+
+    hashed_pass = get_password_hash(payload.password)
+
+    try:
+        user_result = db.execute(
+            text("""
+                INSERT INTO users (username, email, password_hash, role, sender_email, sender_password)
+                VALUES (:username, :email, :password_hash, 'customer', :sender_email, :sender_password)
+                RETURNING id
+            """),
+            {
+                "username": payload.username.strip(),
+                "email": clean_email,
+                "password_hash": hashed_pass,
+                "sender_email": payload.sender_email.strip().lower() if payload.sender_email else None,
+                "sender_password": payload.sender_password if payload.sender_password else None
+            }
+        ).fetchone()
+
+        new_user_id = user_result._mapping["id"]
+
+        db.execute(
+            text("""
+                INSERT INTO user_profiles (user_id, first_name, last_name, phone, bio)
+                VALUES (:user_id, :username, '', '', '')
+            """),
+            {"user_id": new_user_id, "username": payload.username.strip()}
+        )
+
+        db.commit()
+
+        # Define safe default arguments matching your modified Celery signature
+        final_sender = payload.sender_email.strip().lower() if payload.sender_email else "YOUR_VERIFIED_SENDGRID_SENDER_EMAIL@domain.com"
+        final_key = payload.sender_password if payload.sender_password else "SG.xxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+        # Celery task safe-execution wrapper
+        try:
+            send_welcome_email.delay(
+                recipient_email=clean_email,
+                username=payload.username.strip(),
+                sender_email=final_sender,
+                sendgrid_api_key=final_key
+            )
+        except Exception as celery_err:
+            logger.error(f"Failed to queue welcome email task: {str(celery_err)}")
+
+        return {"status": "success", "message": "User registered successfully!"}
+
+    except Exception as db_err:
+        db.rollback()
+        logger.error(f"Database registration failure: {str(db_err)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while saving account credentials."
+        )
 @app.post("/api/login")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -307,74 +378,76 @@ def delete_cart_item(cart_id: int, user_id: int = Depends(get_current_user_id), 
     return {"message": "Item removed"}
 
 # ========================= TRANSACTION & CHECKOUT ENGINE =========================
+# ========================= TRANSACTION & CHECKOUT ENGINE =========================
 @app.post("/api/checkout", status_code=201)
 def place_order(payload: CheckoutRequest, user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
  
-    # 1. Insert order into the database
-    order_result = db.execute(
-        text("""
-            INSERT INTO orders (user_id, total_amount, status, full_name, address, phone, payment_method)
-            VALUES (:user_id, :total_amount, 'Processing', :full_name, :address, :phone, :payment_method)
-            RETURNING id
-        """),
-        {
-            "user_id": user_id, "total_amount": payload.total_amount, "full_name": payload.full_name,
-            "address": payload.address, "phone": payload.phone, "payment_method": payload.payment_method,
-        }
-    ).fetchone()
- 
-    order_id = order_result._mapping["id"]
- 
-    # 2. Convert and insert your cart items into the database
-    items_payload = []
-    for item in payload.items:
-        db.execute(
+    try:
+        # 1. Insert order record
+        order_result = db.execute(
             text("""
-                INSERT INTO order_items (order_id, product_id, name, price, quantity, image_url)
-                VALUES (:order_id, :product_id, :name, :price, :quantity, :image_url)
+                INSERT INTO orders (user_id, total_amount, status, full_name, address, phone, payment_method)
+                VALUES (:user_id, :total_amount, 'Processing', :full_name, :address, :phone, :payment_method)
+                RETURNING id
             """),
-            {"order_id": order_id, "product_id": item.product_id, "name": item.name, "price": item.price, "quantity": item.quantity, "image_url": item.image_url or ""}
-        )
-        
-        # Build the dictionary list for SendGrid's HTML table layout
-        items_payload.append({
-            "name": item.name,
-            "quantity": item.quantity,
-            "price": item.price
-        })
+            {
+                "user_id": user_id, "total_amount": payload.total_amount, "full_name": payload.full_name,
+                "address": payload.address, "phone": payload.phone, "payment_method": payload.payment_method,
+            }
+        ).fetchone()
+     
+        order_id = order_result._mapping["id"]
+     
+        # 2. Insert items
+        items_payload = []
+        for item in payload.items:
+            db.execute(
+                text("""
+                    INSERT INTO order_items (order_id, product_id, name, price, quantity, image_url)
+                    VALUES (:order_id, :product_id, :name, :price, :quantity, :image_url)
+                """),
+                {"order_id": order_id, "product_id": item.product_id, "name": item.name, "price": item.price, "quantity": item.quantity, "image_url": item.image_url or ""}
+            )
+            
+            items_payload.append({
+                "name": item.name,
+                "quantity": item.quantity,
+                "price": item.price
+            })
 
-    db.commit()
+        db.commit()
 
-    # 3. Fetch user details AND their custom SMTP configuration from PostgreSQL
-    user = db.execute(
-        text("""
-            SELECT email, username, sender_email, sender_password
-            FROM users
-            WHERE id = :id
-        """),
-        {"id": user_id}
-    ).fetchone()
+        # 3. Retrieve user profile definitions
+        user = db.execute(
+            text("SELECT email, username, sender_email, sender_password FROM users WHERE id = :id"),
+            {"id": user_id}
+        ).fetchone()
 
-    # 4. SENDGRID FALLBACK ROUTINE
-    final_sender_email = user._mapping.get("sender_email") or "YOUR_VERIFIED_SENDGRID_SENDER_EMAIL@domain.com"
-    
-    # ⚠️ CRITICAL: Replace with your actual master SendGrid API key (Starts with SG.)
-    final_sendgrid_key = user._mapping.get("sender_password") or "SG.xxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        final_sender_email = user._mapping.get("sender_email") or "YOUR_VERIFIED_SENDGRID_SENDER_EMAIL@domain.com"
+        final_sendgrid_key = user._mapping.get("sender_password") or "SG.xxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-    # 5. Send data downstream to the SendGrid celery task
-    send_order_confirmation_email.delay(
-        recipient_email=user._mapping["email"],
-        username=user._mapping["username"],
-        order_id=order_id,
-        total_amount=payload.total_amount,
-        items=items_payload,
-        sender_email=final_sender_email,
-        sendgrid_api_key=final_sendgrid_key
-    )
+        # 4. Safe worker queue execution
+        try:
+            send_order_confirmation_email.delay(
+                recipient_email=user._mapping["email"],
+                username=user._mapping["username"],
+                order_id=order_id,
+                total_amount=payload.total_amount,
+                items=items_payload,
+                sender_email=final_sender_email,
+                sendgrid_api_key=final_sendgrid_key
+            )
+        except Exception as celery_err:
+            logger.error(f"Celery email queue background failure: {str(celery_err)}")
 
-    return {"message": "Order placed successfully", "order_id": f"#ORD{order_id}", "status": "Processing"}
+        return {"message": "Order placed successfully", "order_id": f"#ORD{order_id}", "status": "Processing"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Checkout transaction processing failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to place order transaction.")
 
 @app.get("/api/orders/my")
 def get_my_orders(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):

@@ -27,7 +27,7 @@ export default function CustomerRoutes() {
       <CustomerMenu handleLogout={handleLogout} />
 
       <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
-        <Routes>
+       <Routes>
           <Route index element={<Navigate to="home" replace />} />
           
           {/* Pass wishlist and setWishlist down into CustomerHome */}
@@ -38,6 +38,10 @@ export default function CustomerRoutes() {
           
           <Route path="overview" element={<CustomerDashboard />} />
           <Route path="orders" element={<MyOrders />} />
+          
+          {/* ⚠️ ADD THIS LINE RIGHT HERE FOR YOUR TRACKING PAGE */}
+          <Route path="orders/:id" element={<MyOrders />} /> 
+          
           <Route path="addresses" element={<ShippingAddresses />} />
           <Route path="billing" element={<PaymentMethod />} />
           

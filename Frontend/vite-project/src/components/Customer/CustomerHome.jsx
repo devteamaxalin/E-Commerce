@@ -175,23 +175,37 @@ export default function Home({ wishlist = [], setWishlist }) {
     setTimeout(() => setMessage(""), 3000);
   };
 const confirmOrder = async () => {
-    if (!fullName.trim() || !address.trim() || !phone.trim() || !/^[0-9]{10}$/.test(phone.trim())) {
+    // 1. Enhanced Form Validations (With Pop-up alerts so you know if it's blocking)
+    if (!fullName.trim() || !address.trim() || !phone.trim()) {
+      alert("Validation Failed: Name, Address, and Phone are required fields.");
       showNotification("Please check and fill out your information properly.", "error");
       return;
     }
+    
+    // Strict 10-digit number validation check
+    if (!/^[0-9]{10}$/.test(phone.trim())) {
+      alert("Validation Failed: Phone number must be EXACTLY 10 digits (no spaces, no symbols).");
+      showNotification("Please enter a valid 10-digit phone number.", "error");
+      return;
+    }
+
     if (!selectedPayment) {
+      alert("Validation Failed: Please choose a payment method.");
       showNotification("Please select a payment method before confirmation!", "error");
       return;
     }
+
     if (selectedPayment === "UPI" && (!upiId.trim() || !upiId.includes("@"))) {
+      alert("Validation Failed: Invalid UPI ID format.");
       showNotification("Please enter a valid UPI ID", "error");
       return;
     }
+
     if (selectedPayment === "CARD") {
-      if (!cardNumber.trim() || cardNumber.replace(/\s/g, "").length < 16) { showNotification("Please enter a valid 16-digit card number", "error"); return; }
-      if (!cardName.trim()) { showNotification("Please enter the card holder name", "error"); return; }
-      if (!cardExpiry.trim()) { showNotification("Please enter card expiry date", "error"); return; }
-      if (!cardCvv.trim() || cardCvv.length < 3) { showNotification("Please enter a valid CVV", "error"); return; }
+      if (!cardNumber.trim() || cardNumber.replace(/\s/g, "").length < 16) { alert("Card number must be 16 digits."); return; }
+      if (!cardName.trim()) { alert("Card holder name is required."); return; }
+      if (!cardExpiry.trim()) { alert("Card expiry date is required."); return; }
+      if (!cardCvv.trim() || cardCvv.length < 3) { alert("CVV must be 3 digits."); return; }
     }
 
     const token = localStorage.getItem("token");
@@ -200,24 +214,23 @@ const confirmOrder = async () => {
       return;
     }
 
-    // 1. Map data providing ALL required properties expected by CheckoutItem Pydantic schema
+    // 2. Map payload items matching backend parameters
     const orderItems = buyNowProduct 
       ? [{ 
           product_id: parseInt(buyNowProduct.id), 
-          name: buyNowProduct.name,                      
+          name: String(buyNowProduct.name),                      
           price: parseFloat(buyNowProduct.price), 
           quantity: 1, 
-          image_url: buyNowProduct.image_url || ""       
+          image_url: String(buyNowProduct.image_url || "")       
         }]
       : cart.map(item => ({
           product_id: parseInt(item.id),
-          name: item.name,                               
+          name: String(item.name),                               
           price: parseFloat(item.price),
           quantity: parseInt(item.quantity),
-          image_url: item.image_url || ""                
+          image_url: String(item.image_url || "")                
         }));
 
-    // 2. Build payload structure matching CheckoutRequest model definition
     const payload = {
       full_name: fullName.trim(),
       address: address.trim(),
@@ -228,26 +241,34 @@ const confirmOrder = async () => {
     };
 
     try {
-      // 3. Post directly to your verified active checkout endpoint
+      // 3. Fire Axios POST to the FastAPI backend URL
       const res = await axios.post("http://127.0.0.1:8000/api/checkout", payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       showNotification("Order Placed Successfully!", "success");
 
-      // 4. Force state cleanups to clear out local input views
+      // 4. Extract raw numeric ID sequence from the backend's response string (e.g., "#ORD25" -> "25")
+      const rawOrderIdStr = res.data.order_id; 
+      const numericOrderId = rawOrderIdStr.replace("#ORD", "");
+
+      // 5. Navigate directly to your specific tracking page structure route
+      navigate(`../orders/${numericOrderId}`); 
+
+      // 6. State cleanups
       if (!buyNowProduct) setCart([]);
       setFullName(""); setAddress(""); setPhone("");
       setSelectedPayment(""); setUpiId(""); setCardNumber(""); setCardName(""); setCardExpiry(""); setCardCvv("");
       setBuyNowProduct(null); 
       setShowCheckout(false); 
 
-      // 5. Navigate relatively to the orders dashboard route sibling view
-      navigate("../orders");
-
     } catch (err) {
       console.error("Order submission failed:", err.response?.data || err.message);
-      showNotification(err.response?.data?.detail?.[0]?.msg || "Failed to place order", "error");
+      const serverMessage = err.response?.data?.detail;
+      showNotification(
+        typeof serverMessage === "string" ? serverMessage : "Failed to place order.", 
+        "error"
+      );
     }
   };
   return (
